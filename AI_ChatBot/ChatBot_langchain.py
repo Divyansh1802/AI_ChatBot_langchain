@@ -1,3 +1,5 @@
+import asyncio
+
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -28,8 +30,8 @@ load_dotenv()
 
 llm = ChatGroq(
     model="llama-3.1-8b-instant"
-)
-
+)    
+    
 
 embedding_model = HuggingFaceEmbeddings(
     model_name = "sentence-transformers/all-MiniLM-L6-v2" )
@@ -38,9 +40,9 @@ async def generate_response(request: ChatRequest) -> str:
     
     api = YouTubeTranscriptApi()
     try:
-        transcript_list = api.get_transcript(request.video_id, languages=["en","hi"])
+        transcript_list = api.fetch(request.video_id, languages=["en","hi"])
         
-        transcript = " ".join(chunk['text'] for chunk in transcript_list)
+        transcript = " ".join(chunk.text for chunk in transcript_list)
     
     except TranscriptsDisabled:
            raise HTTPException(status_code=404, detail="ERROR")
@@ -74,7 +76,7 @@ async def generate_response(request: ChatRequest) -> str:
     input_variables=['context','question']
     )
     
-    retrieved_docs = retriever._get_relevant_documents(request.message)
+    retrieved_docs = retriever.invoke(request.message)
     
     context_text = "\n\n".join(doc.page_content for doc in retrieved_docs)
     
@@ -83,8 +85,3 @@ async def generate_response(request: ChatRequest) -> str:
     answer = llm.invoke(final_prompt)
     
     return answer.content
-
-    
-           
-
-
