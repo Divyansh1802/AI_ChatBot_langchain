@@ -12,21 +12,24 @@ from pydantic import BaseModel
 app = FastAPI(title="AI Chatbot API")
 
 from dotenv import load_dotenv
+load_dotenv()
 
 # Request model
 class ChatRequest(BaseModel):
     message: str
     video_id: str
     
-# API endpoint
+# API Endpoint
 @app.post("/chat")
 async def chat(request: ChatRequest):
+
     if not request.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
-    
+
     response = await generate_response(request)
-    return response
-load_dotenv()
+
+    return {"response": response}
+
 
 llm = ChatGroq(
     model="llama-3.1-8b-instant"
@@ -40,9 +43,8 @@ async def generate_response(request: ChatRequest) -> str:
     
     api = YouTubeTranscriptApi()
     try:
-        transcript_list = api.fetch(request.video_id, languages=["en","hi"])
-        
-        transcript = " ".join(chunk.text for chunk in transcript_list)
+        transcript_list = YouTubeTranscriptApi.get_transcript(request.video_id)
+        transcript = " ".join(chunk["text"] for chunk in transcript_list)
     
     except TranscriptsDisabled:
            raise HTTPException(status_code=404, detail="ERROR")
