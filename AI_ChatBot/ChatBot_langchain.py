@@ -41,7 +41,6 @@ embedding_model = HuggingFaceEmbeddings(
 
 async def generate_response(request: ChatRequest) -> str:
     
-    api = YouTubeTranscriptApi()
     try:
         transcript_list = YouTubeTranscriptApi.get_transcript(request.video_id)
         transcript = " ".join(chunk["text"] for chunk in transcript_list)
