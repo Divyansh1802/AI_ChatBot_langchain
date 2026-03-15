@@ -10,7 +10,7 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate
 
 load_dotenv()
@@ -121,7 +121,7 @@ def build_vector_store(video_id: str, transcript: str):
 
     docs = splitter.create_documents([transcript])
 
-    vector_store = FAISS.from_documents(
+    vector_store = Chroma.from_documents(
         docs,
         embedding_model
     )
