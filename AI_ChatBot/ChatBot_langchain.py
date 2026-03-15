@@ -35,6 +35,8 @@ llm = ChatGroq(
     model="llama-3.1-8b-instant"
 )    
     
+embedding_model =  HuggingFaceEmbeddings(
+            model_name = "sentence-transformers/all-MiniLM-L6-v2" )
 
 async def generate_response(request: ChatRequest) -> str:
     
@@ -45,10 +47,6 @@ async def generate_response(request: ChatRequest) -> str:
     except TranscriptsDisabled:
            raise HTTPException(status_code=404, detail="ERROR")
     
-    
-    
-    embedding_model = await HuggingFaceEmbeddings(
-            model_name = "sentence-transformers/all-MiniLM-L6-v2" )
     
     # SPLIITER
 
