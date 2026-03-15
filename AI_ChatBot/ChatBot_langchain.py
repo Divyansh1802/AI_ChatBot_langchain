@@ -36,9 +36,6 @@ llm = ChatGroq(
 )    
     
 
-embedding_model = HuggingFaceEmbeddings(
-    model_name = "sentence-transformers/all-MiniLM-L6-v2" )
-
 async def generate_response(request: ChatRequest) -> str:
     
     try:
@@ -49,7 +46,10 @@ async def generate_response(request: ChatRequest) -> str:
            raise HTTPException(status_code=404, detail="ERROR")
     
     
-        
+    
+    embedding_model = await HuggingFaceEmbeddings(
+            model_name = "sentence-transformers/all-MiniLM-L6-v2" )
+    
     # SPLIITER
 
     splitter = RecursiveCharacterTextSplitter(chunk_size = 1000,chunk_overlap = 200)
