@@ -38,6 +38,17 @@ llm = ChatGroq(
 embedding_model =  HuggingFaceEmbeddings(
             model_name = "sentence-transformers/all-MiniLM-L6-v2" )
 
+prompt = PromptTemplate(
+    template="""
+      You are a helpful assistant,
+      answer in very short and concised manner Only form the provided transcript context.
+      If the context is insufficient , just say you don't know.
+      {context}
+      Question: {question}
+    """,
+    input_variables=['context','question']
+    )
+
 async def generate_response(request: ChatRequest) -> str:
     
     try:
@@ -64,16 +75,6 @@ async def generate_response(request: ChatRequest) -> str:
     retriever = vector_store.as_retriever(search_type = "similarity", 
                                        search_kwargs = {"k":4})
     
-    prompt = PromptTemplate(
-    template="""
-      You are a helpful assistant,
-      answer in very short and concised manner Only form the provided transcript context.
-      If the context is insufficient , just say you don't know.
-      {context}
-      Question: {question}
-    """,
-    input_variables=['context','question']
-    )
     
     retrieved_docs = retriever.invoke(request.message)
     
