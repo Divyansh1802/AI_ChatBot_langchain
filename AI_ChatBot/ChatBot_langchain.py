@@ -1,11 +1,11 @@
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from functools import lru_cache
-
 from dotenv import load_dotenv
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled
+from langchain_community.document_loaders import YoutubeLoader
 
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -31,7 +31,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
-    video_id: str
+    video_url: str
 
 
 # -----------------------------
@@ -55,8 +55,8 @@ embedding_model = HuggingFaceEmbeddings(
 # -----------------------------
 
 splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200
+    chunk_size=500,
+    chunk_overlap=100
 )
 
 # -----------------------------
@@ -68,14 +68,15 @@ prompt = PromptTemplate(
 You are a helpful assistant.
 
 Answer ONLY using the provided transcript context.
-Keep the answer very short and concise.
+Keep the answer short and correct.
 
-If the context is insufficient say:
-"I don't know".
+If the context is insufficient or the question asked is vague or completely does not
+match with any of the aspects of video , say "this question is out of scope of this video, but i still tell you the answer",
+then in atmost 2-3 sentence answer it by searching your database .
 
 Context:
 {context}
-
+, and the question asked is 
 Question:
 {question}
 """,
@@ -85,31 +86,7 @@ Question:
 
 # -----------------------------
 # Transcript Fetching
-# -----------------------------
-
-async def fetch_transcript(video_id: str):
-
-    try:
-        transcript_items = await run_in_threadpool(
-            YouTubeTranscriptApi.get_transcript,
-            video_id,
-            ['en']
-        )
-
-        transcript = " ".join(
-            item["text"].strip() for item in transcript_items
-        )
-
-        return transcript
-
-    except TranscriptsDisabled:
-        raise HTTPException(status_code=404, detail="Transcript disabled")
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Transcript fetch error: {str(e)}"
-        )
+# ----------------------------
 
 
 # -----------------------------
@@ -117,16 +94,27 @@ async def fetch_transcript(video_id: str):
 # -----------------------------
 
 @lru_cache(maxsize=20)
-def build_vector_store(video_id: str, transcript: str):
+def build_vector_store(video_url: str):
+    try:
+        loader = YoutubeLoader.from_youtube_url(video_url,
+           add_video_info=False,
+           language="en"
+        )
 
-    docs = splitter.create_documents([transcript])
+        docs = loader.load()
 
-    vector_store = Chroma.from_documents(
-        docs,
-        embedding_model
-    )
-
-    return vector_store
+        split_docs = splitter.split_documents(docs)
+        if not split_docs:
+            raise HTTPException(status_code=500, detail="Failed to split transcript into chunks")
+        
+        vector_store = Chroma.from_documents(
+            split_docs,
+            embedding_model
+        )
+    
+        return vector_store
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Error fetching transcript: {str(e)}")
 
 
 # -----------------------------
@@ -142,14 +130,10 @@ async def chat(request: ChatRequest):
             detail="Message cannot be empty"
         )
 
-    # Fetch transcript
-    transcript = await fetch_transcript(request.video_id)
-
-    # Get cached vector store
+   # Get cached vector store
     vector_store = await run_in_threadpool(
         build_vector_store,
-        request.video_id,
-        transcript
+        request.video_url
     )
 
     retriever = vector_store.as_retriever(
@@ -171,9 +155,10 @@ async def chat(request: ChatRequest):
         question=request.message
     )
 
-    answer = await run_in_threadpool(
-        llm.invoke,
-        final_prompt
-    )
+    try:
+        answer = await run_in_threadpool(llm.invoke, final_prompt)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
 
     return {"response": answer.content}
