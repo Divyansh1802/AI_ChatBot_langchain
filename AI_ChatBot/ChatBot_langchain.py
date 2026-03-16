@@ -12,8 +12,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate
+import os
 
 load_dotenv()
+port = int(os.environ.get("PORT", 4000)) 
 
 app = FastAPI(title="AI YouTube Chatbot API")
 
@@ -162,3 +164,4 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
 
     return {"response": answer.content}
+
