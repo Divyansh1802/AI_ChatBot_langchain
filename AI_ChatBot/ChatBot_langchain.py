@@ -47,10 +47,12 @@ llm = ChatGroq(
 # -----------------------------
 # Embeddings
 # -----------------------------
-embedding_model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": "cpu"}
-)
+@lru_cache(maxsize=1)
+def get_embeddings():
+  return HuggingFaceEmbeddings(
+      model_name="sentence-transformers/all-MiniLM-L6-v2",
+      model_kwargs={"device": "cpu"}
+     )
 
 # -----------------------------
 # Text Splitter
@@ -109,9 +111,9 @@ def build_vector_store(video_url: str):
         if not split_docs:
             raise HTTPException(status_code=500, detail="Failed to split transcript into chunks")
         
-        vector_store = Chroma.from_documents(
+        vector_store =  Chroma.from_documents(
             split_docs,
-            embedding_model
+            get_embeddings()
         )
     
         return vector_store
@@ -122,6 +124,11 @@ def build_vector_store(video_url: str):
 # -----------------------------
 # Chat Endpoint
 # -----------------------------
+
+@app.get("/")
+def root():
+    return {"status": "ok"}
+
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
